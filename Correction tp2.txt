@@ -1,0 +1,197 @@
+1/
+select tablespace_name, contents
+from dba_tablespaces;
+
+create tablespace tbl01 DATAFILE
+'C:\oraclexe\oradata\XE\fd01tbl01.dbf' SIZE 6 M,
+'C:\oraclexe\oradata\XE\fd02tbl01.dbf' SIZE 4 M;
+
+select tablespace_name, contents
+from dba_tablespaces;
+
+2/
+select property_name, property_value
+from database_properties
+where property_name like '%TABLESPACE%';
+
+alter database default tablespace tbl01;
+
+select property_name, property_value
+from database_properties
+where property_name like '%TABLESPACE%';
+
+3/
+create tablespace tbl02 DATAFILE
+'C:\oraclexe\oradata\XE\fd01tbl02.dbf' SIZE 10 M,
+'C:\oraclexe\oradata\XE\fd02tbl02.dbf' SIZE 20 M,
+'C:\oraclexe\oradata\XE\fd0xtbl02.dbf' SIZE 5 M ; 
+
+select tablespace_name, contents
+from dba_tablespaces;
+
+4/
+alter tablespace tbl01 add datafile
+'C:\oraclexe\oradata\XE\fd03tbl01.dbf' SIZE 20 M;
+
+select file_name, tablespace_name
+from dba_data_files;
+
+5/
+alter tablespace tbl02 offline;
+
+host copy C:\ORACLEXE\ORADATA\XE\FD0xTBL02.DBF C:\ORACLEXE\ORADATA\XE\FD03TBL02.DBF
+
+alter tablespace tbl02;
+rename datafile 
+'C:\ORACLEXE\ORADATA\XE\FD0xTBL02.DBF'
+to 
+'C:\ORACLEXE\ORADATA\XE\FD03TBL02.DBF';
+
+alter tablespace tbl02 online;
+
+6/
+select tablespace_name, contents
+from dba_tablespaces;
+
+7/
+set serveroutput on
+
+declare
+cursor c is select tablespace_name, count(*) as nb_tab
+            from dba_data_files
+            group by tablespace_name;
+begin
+for vc in c loop
+dbms_output.put_line(vc.tablespace_name ||'  '|| vc.nb_tab);
+end loop;
+end;
+/
+
+8/
+alter tablespace tbl01 ADD DATAFILE
+'C:\oraclexe\oradata\XE\fd04tbl01.dbf' SIZE 2M
+autoextend on next 1M maxsize 4M;
+
+9/
+create temporary tablespace montemp tempfile
+'C:\oraclexe\oradata\XE\f1montemp.dbf'size 5M ;
+
+select property_name, property_value
+from database_properties
+where property_name like '%TABLESPACE%';
+
+alter database default temporary tablespace montemp ;
+
+select property_name, property_value
+from database_properties
+where property_name like '%TABLESPACE%';
+
+10/
+create or replace function FN_NBR_TAB_TEMP
+return number
+is
+nb number;
+begin
+select count(*) into nb from dba_tablespaces
+where contents = 'TEMPORARY';
+return nb;
+end;
+/
+
+select FN_NBR_TAB_TEMP() from dual;
+
+11/
+create user td3 identified by td3 default tablespace tbl01;
+
+select default_tablespace, temporary_tablespace
+from dba_users
+where username = 'TD3';
+
+12/
+drop tablespace tbl01;
+
+13/
+A/
+select tablespace_name, count(*) as N, sum(bytes)/1024/1024 as AL
+from dba_data_files
+group by tablespace_name;
+
+B/
+select tablespace_name, sum(bytes)/1024/1024 as OC
+from dba_segments
+group by tablespace_name;
+
+C/
+select tablespace_name, sum(bytes)/1024/1024 as LI
+from dba_free_space
+group by tablespace_name;
+
+D/
+select A.tablespace_name, N, AL, OC, LI
+from
+(select tablespace_name, count(*) as N, sum(bytes)/1024/1024 as AL
+from dba_data_files
+group by tablespace_name) A,
+(select tablespace_name, sum(bytes)/1024/1024 as OC
+from dba_segments
+group by tablespace_name) B,
+(select tablespace_name, sum(bytes)/1024/1024 as LI
+from dba_free_space
+group by tablespace_name) C
+where A.tablespace_name=B.tablespace_name
+and C.tablespace_name=B.tablespace_name;
+
+E/
+create or replace procedure PS_DETAILS_TAB is
+
+cursor c is
+select A.tablespace_name, N, AL, OC, LI
+from
+(select tablespace_name, count(*) as N, sum(bytes)/1024/1024 as AL
+from dba_data_files
+group by tablespace_name) A,
+(select tablespace_name, sum(bytes)/1024/1024 as OC
+from dba_segments
+group by tablespace_name) B,
+(select tablespace_name, sum(bytes)/1024/1024 as LI
+from dba_free_space
+group by tablespace_name) C
+where A.tablespace_name=B.tablespace_name
+and C.tablespace_name=B.tablespace_name;
+
+begin
+for vc in c loop
+dbms_output.put_line(
+vc.tablespace_name||'_'||vc.N||'_'||vc.AL||'_'||vc.OC||'_'||vc.LI
+);
+end loop;
+end;
+/
+
+set serveroutput on
+
+execute PS_DETAILS_TAB
+14/
+grant connect, resource to td3;
+
+conn td3/td3
+
+CREATE TABLE Etudiants
+(num_etud number(10) primary key,
+nom_etud varchar2(30),
+moyenne_etud number(4,2)
+) ;
+
+BEGIN
+for i in 1 .. 10000 LOOP
+insert into Etudiants (num_etud, nom_etud, moyenne_etud )
+values (i , 'Etudiant'||i ,10) ;
+END LOOP;
+END ;
+/
+
+15/
+conn system/system
+
+execute PS_DETAILS_TAB
+
