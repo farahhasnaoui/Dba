@@ -1,0 +1,99 @@
+-- exercice 1
+-- 1
+show parameter audit_trail ;
+
+alter system set audit_trail = 'DB_EXTENDED' scope=spfile ;
+shutdown 
+startup
+ou bien startup force
+-- 2
+create user td4 identified by td4 ;
+GRANT CREATE SESSION,create table, CREATE procedure TO td4;
+-- 3
+AUDIT all By td4 BY access;    --LDD
+
+AUDIT select table,delete table, insert table,
+ update table by td4 by access ;   --LMD
+
+AUDIT execute procedure by td4 by access ;
+
+-- 4
+alter user td4 quota unlimited on system;
+connect td4/td4
+create table test (id number) ;
+insert into test values(120);
+update test set id=230;
+delete test;
+drop table test ;
+-- 5
+select username, timestamp ,substr(obj_name,1,15) , 
+       substr(action_name,1,15) 
+from   DBA_AUDIT_OBJECT 
+where username = 'TD4'
+and substr(obj_name,1,15)= 'TEST';
+
+
+
+ Exercice 2:
+
+--1
+create user TD41 identified by td41 quota unlimited on users 
+QUOTA UNLIMITED ON system;
+grant DBA to td41 ;
+
+
+--2
+
+AUDIT create SESSION by TD41;
+Select privilege from DBA_PRIV_AUDIT_OPTS  
+where user_name = 'TD41';
+-- 3
+connect td41/td41
+create table table1(a number);
+create table table2(b number);
+-- 4
+AUDIT select ,delete , insert , update 
+on  td41.table1 by session;
+AUDIT select on  td41.table2 by access ;
+-- 5
+select object_name,sel,ins,upd,del 
+from dba_obj_audit_opts 
+where owner = 'TD41';  
+-- 6
+connect td41/td41
+
+select a from table1;
+select bb from table1;
+select b from table2;
+insert into table1 values (1);
+select b from table2;
+select a from table1;
+commit;
+
+select username,obj_name, action_name, ses_actions 
+from DBA_AUDIT_TRAIL 
+where owner = 'TD41';
+
+/* si on trouve dans action_name 'session rec' ça veut dire
+qu'on a un audit par session, si l'audit est par acces on 
+trouve dans action_name le nom de l'action*/
+
+
+-- 7
+audit alter on default;
+--conn td41/TD41
+create table Table3(c number);
+alter table table3 
+add (d number);
+--pour vérifier on exécute :
+select action_name , obj_name, 
+sql_text
+from dba_audit_object
+where username='TD41';
+
+-- 8
+noaudit select ,delete on td41.table1 ;
+select object_name,sel,ins,upd,del from dba_obj_audit_opts where owner = 'TD41' and object_name='TABLE1';  
+
+
+

@@ -1,0 +1,57 @@
+4/GRANT IMP_FULL_DATABASE TO VOTRE_UTILISATEUR;
+GRANT EXP_FULL_DATABASE TO VOTRE_UTILISATEUR;
+GRANT CREATE TABLE TO VOTRE_UTILISATEUR;
+
+5/expdp USER1_SP DIRECTORY=ORACLE DUMPFILE=EXPORT_USER1.DUMP SCHEMAS=USER1_SP CONTENT=ALL
+
+6/impdp USER2 DIRECTORY=ORACLE DUMPFILE=EXPORT_USER1.DUMP REMAP_SCHEMA=USER1_SP:USER2 CONTENT=METADATA_ONLY
+
+
+
+7/CREATE PROFILE PROFILE_SP LIMIT
+    PASSWORD_LIFE_TIME 30, -- Durée de vie du mot de passe en jours
+    PASSWORD_VERIFY_FUNCTION verify_password;
+
+-- Création de la fonction de vérification de mot de passe
+CREATE OR REPLACE FUNCTION verify_password (username IN VARCHAR2, password IN VARCHAR2, old_password IN VARCHAR2)
+RETURN BOOLEAN AS
+BEGIN
+    -- Vérification de la durée de vie du mot de passe (30 jours)
+    IF SYSDATE - PASSWORD_LAST_CHANGED > 30 THEN
+        RETURN FALSE;
+    END IF;
+
+8/ALTER USER USER1_SP PROFILE PROFILE_SP;
+ALTER USER USER2 PROFILE PROFILE_SP;
+
+9/CREATE OR REPLACE FUNCTION FN_NB_FILES(p_tablespace IN VARCHAR2) RETURN NUMBER IS
+  v_file_count NUMBER;
+BEGIN
+  SELECT COUNT(*)
+  INTO v_file_count
+  FROM dba_data_files
+  WHERE tablespace_name = p_tablespace;
+  
+  RETURN v_file_count;
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+    RETURN 0;
+  WHEN OTHERS THEN
+    -- Gérer l'exception selon vos besoins
+    RAISE;
+END;
+
+10/CREATE OR REPLACE PROCEDURE PROC_AUDIT(p_username IN VARCHAR2) IS
+BEGIN
+  FOR audit_rec IN (
+    SELECT obj_name, action_name, timestamp
+    FROM dba_audit_trail
+    WHERE username = p_username
+  ) LOOP
+    DBMS_OUTPUT.PUT_LINE('Object: ' || audit_rec.obj_name);
+    DBMS_OUTPUT.PUT_LINE('Action: ' || audit_rec.action_name);
+    DBMS_OUTPUT.PUT_LINE('Timestamp: ' || audit_rec.timestamp);
+    DBMS_OUTPUT.PUT_LINE('-------------------------');
+  END LOOP;
+END;
+/
